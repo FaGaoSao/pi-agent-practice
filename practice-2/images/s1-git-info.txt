@@ -1,0 +1,11 @@
+﻿C:\Users\48019\Desktop\程序\pi> git remote -v
+org    https://gitee.com/pinhaodui/pi-hunnu-2026.git (fetch)
+org    https://gitee.com/pinhaodui/pi-hunnu-2026.git (push)
+origin https://github.com/earendil-works/pi.git (fetch)
+origin https://github.com/earendil-works/pi.git (push)
+
+C:\Users\48019\Desktop\程序\pi> git branch --show-current
+course-main
+
+C:\Users\48019\Desktop\程序\pi> git rev-parse HEAD
+d981de1229ef899957bbe968bc8dcda02a21f477

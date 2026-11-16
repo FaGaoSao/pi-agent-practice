@@ -1,0 +1,31 @@
+graph TD
+    chord["chord<br/>应用组合运行时"]
+    tui["tui<br/>终端 UI 库"]
+    telemetry["telemetry<br/>遥测契约"]
+    ai["ai<br/>统一 LLM API"]
+    agent["agent-core<br/>通用 Agent"]
+    sqlite["session-backend-sqlite<br/>SQLite 会话后端"]
+    protocol["protocol<br/>CBOR 协议"]
+    client["client<br/>远程客户端"]
+    server["server<br/>远程服务器"]
+    coding["coding-agent<br/>编码 Agent CLI"]
+
+    ai --> telemetry
+    agent --> chord
+    agent --> ai
+    agent --> telemetry
+    sqlite --> ai
+    sqlite --> agent
+    protocol --> chord
+    client --> chord
+    client --> protocol
+    server --> chord
+    server --> agent
+    server --> protocol
+    coding --> chord
+    coding --> agent
+    coding --> ai
+    coding --> tui
+    coding --> client
+    coding --> protocol
+    coding --> server
