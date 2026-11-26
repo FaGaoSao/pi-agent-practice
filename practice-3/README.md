@@ -183,46 +183,7 @@ npm error path C:\Users\48019\Desktop\程序\pi\packages\ai
 
 **困难描述：**
 
-`npm run build` 的第一步是 `generate-models`，它会联网从 models.dev、OpenRouter、Vercel AI Gateway 拉取最新模型目录，重新生成 `models.generated.ts` 和各 provider 的 shard 文件。
-
-本次实验共遇到**两次失败，原因不同**，分别记录如下。
-
----
-
-**失败 1：网络不可达，模型目录拉取超时**
-
-第一次执行 `npm run build` 时网络不通，`generate-models` 在第一步 fetch 就超时失败，构建中断在 ai 包：
-
-```
-> @earendil-works/pi-ai@0.85.1 generate-models
-> node scripts/generate-models.ts --strict
-
-Fetching models from models.dev API...
-Fetching models from NVIDIA NIM API...
-Failed to fetch NVIDIA NIM models: [TypeError: fetch failed] {
-  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 99.83.136.103:443, timeout: 10000ms)
-}
-Failed to load models.dev data: [TypeError: fetch failed] {
-  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 99.83.136.103:443, timeout: 10000ms)
-}
-npm error Lifecycle script `generate-models` failed with error:
-npm error code 1
-```
-
-**原因**：`npm run build` 的首次构建需要联网获取模型目录数据（是模型目录、能力等配置数据，不是下载大模型权重）。当前网络无法访问 models.dev 与 NVIDIA NIM，属于网络环境问题，与本机 Node.js/npm 环境无关。
-
-**当时的处理**：改用 `npm run build:offline` 复用仓库中已有的模型数据，跳过联网步骤。
-
----
-
-**失败 2：联网成功，但上游模型目录变化与本版本源码不兼容**
-
-网络恢复后重试 `npm run build`，`generate-models` 成功拉到了**更新的模型数据**，但类型检查阶段报错：
-
-1. `kimi-coding` 这个 provider 在新目录中不存在了，生成脚本据此**删除了** `packages/ai/src/providers/kimi-coding.models.ts`，但源码 `kimi-coding.ts` 仍然 `import` 它，于是报 TS2307。
-2. 新数据中 `opencode-go` 下出现了 `gemini-4-argon`（api 为 `google-generative-ai`），与该文件声明接受的 api 联合类型不符，报 TS2322。
-
-即：**上游模型目录变化与本版本源码不兼容**，已经不是网络问题，而是"数据比源码新"导致的问题。这也说明 `npm run build` 成功与否受上游目录状态影响，单纯重试并不总能通过。
+`npm run build` 的第一步是 `generate-models`，它会联网从 models.dev、OpenRouter、Vercel AI Gateway 拉取最新模型目录，重新生成 `models.generated.ts` 和各 provider 的 shard 文件。本次联网成功拉到了**更新的模型数据**，其中：
 
 1. `kimi-coding` 这个 provider 在新目录中不存在了，生成脚本据此**删除了** `packages/ai/src/providers/kimi-coding.models.ts`，但源码 `kimi-coding.ts` 仍然 `import` 它，于是报 TS2307。
 2. 新数据中 `opencode-go` 下出现了 `gemini-4-argon`（api 为 `google-generative-ai`），与该文件声明接受的 api 联合类型不符，报 TS2322。
@@ -293,14 +254,12 @@ PS C:\Users\48019\Desktop\程序\pi> $LASTEXITCODE
 
 **经验总结：**
 
-- `npm run build` 会**主动联网更新模型目录**，属预期行为（模型目录数据，不是大模型权重）；这带来两类失败：网络不通（失败 1）、上游目录变化与本版本源码不兼容（失败 2）。
-- 出错时应先看**是哪个子包、哪一行**，区分"网络问题""环境问题""上游数据变化导致的类型不匹配"。本实验两次失败的日志完全不同，处理方式也不同。
+- `npm run build` 会**主动联网更新模型目录**，属预期行为（模型目录数据，不是大模型权重）；但上游目录变化可能与本版本源码不兼容。
+- 出错时应先看**是哪个子包、哪一行**，区分"网络问题""环境问题""上游数据变化导致的类型不匹配"。
 - 受版本控制的文件可用 git 恢复；被 gitignore 的生成数据需另行补齐。
 - 数据已准备好且仍有效时，用 `npm run build:offline` 复用数据，不重复联网。
 
-![S5a-1 首次构建失败：网络超时](images/s5a-build-fail.png)
-
-![S5a-2 重试失败：上游模型目录与本版本源码不兼容](images/s5a2-build-fail.png)
+![S5a 首次构建失败](images/s5a-build-fail.png)
 
 ### 6.2 检查并运行构建产物
 
@@ -383,9 +342,8 @@ PS C:\Users\48019\Desktop\程序\pi> .\pi-test.bat
 
 | 问题 | 现象 | 原因 | 解决 |
 |------|------|------|------|
-| 失败 1：`npm run build` 联网超时 | `generate-models` 报 `ConnectTimeoutError`（models.dev / NVIDIA NIM 均超时），`npm error code 1` | 首次构建需联网获取模型目录数据，当时网络无法访问上述站点 | 改用 `npm run build:offline` 复用已有模型数据 |
-| 失败 2：重试时上游目录与源码不兼容 | TS2307 找不到 `kimi-coding.models.ts`；TS2322 `opencode-go` 类型不匹配 | 网络恢复后 `generate-models` 拉到新模型目录，删除了源码仍引用的 provider shard，并引入本版本不支持的 api 类型 | 回退受版本控制的生成文件，从 npm 同版本包补齐被 gitignore 的数据文件，再用 `npm run build:offline` |
-| 模型数据目录不受版本控制 | `check:model-data` 报 `kimi-coding.json` 缺失 | `packages/ai/src/providers/data/` 在 `.gitignore` 中 | 从 `@earendil-works/pi-ai@0.85.1` 已发布包提取（40 个文件） |
+| 首次 `npm run build` 在 ai 包失败 | TS2307 找不到 `kimi-coding.models.ts`；TS2322 `opencode-go` 类型不匹配 | `generate-models` 联网拉到新模型目录，删除了源码仍引用的 provider shard，并引入本版本不支持的 api 类型 | 回退受版本控制的生成文件，从 npm 同版本包补齐被 gitignore 的数据文件，改用 `npm run build:offline` |
+| 模型数据目录不受版本控制 | `check:model-data` 报 `kimi-coding.json` 缺失 | `packages/ai/src/providers/data/` 在 `.gitignore` 中 | 从 `@earendil-works/pi-ai@0.85.1` 已发布包提取 |
 | PowerShell 不支持 `&&` | 命令解析报错 | 当前 PowerShell 版本不支持 `&&` 链式操作符 | 改用 `;` 分隔或分步执行 |
 
 ## 十、实验总结
@@ -397,4 +355,4 @@ PS C:\Users\48019\Desktop\程序\pi> .\pi-test.bat
 - **构建执行了什么**：根 `scripts.build` 是串行命令链，依次进入 10 个子包执行各自的 build（TypeScript 编译产物到各自 `dist/`，ai 包额外生成模型目录，coding-agent 额外打包 bundle）。
 - **正在运行哪个版本**：`0.85.1`，由 `.\pi-test.bat --version` 与本地路径运行 `dist/bundle/cli.js --version` 双重确认。
 
-最有价值的收获是两次构建失败的处理过程。两次日志完全不同：第一次是纯网络问题（`ConnectTimeoutError`），第二次是上游模型目录跑到了源码前面（类型不匹配）。顺着 `git status` 能看出第二次失败是联网更新模型目录的副作用，进而区分出"应当回退的受版本控制文件"和"需要另外补齐的被忽略数据文件"。这个过程比单纯让构建跑通更能说明构建脚本到底动了什么，也说明了为什么离线构建 `npm run build:offline` 值得作为一个独立命令存在。
+最有价值的收获是首次构建失败的处理过程：错误信息明确指到了 ai 包的 provider 文件，顺着 `git status` 发现是联网更新模型目录引发的副作用，进而区分出"应当回退的受版本控制文件"和"需要另外补齐的被忽略数据文件"。这比单纯让构建跑通更能说明构建脚本到底动了什么。
