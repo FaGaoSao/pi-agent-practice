@@ -1,0 +1,119 @@
+---
+title: 图1 单轮工具调用（read）的代码级时序图 —— 以「请用 read 工具读取当前目录的 handoff.txt」为例
+---
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant I as 交互与会话层
+    participant A as Agent 执行层
+    participant M as 模型请求层
+    participant T as read 工具
+
+    Note over U,T: 五条生命线：用户 / 交互与会话层 / Agent 执行层 / 模型请求层 / read 工具
+
+    U->>I: 输入：「请用 read 工具读取当前目录的 handoff.txt，原样告诉我待办和启动命令。」
+    activate I
+    Note over I: 交互与会话层内部：interactive-mode.ts 与<br/>agent-session.ts 是同一层，两者之间是跨文件调用
+    I->>I: interactive-mode.ts:2965 defaultEditor.onSubmit(text)
+    I->>I: interactive-mode.ts:3150 this.onInputCallback(text)
+    I->>I: 主循环 interactive-mode.ts:1135 session.prompt(userInput)
+    I->>I: agent-session.ts:1159 AgentSession.prompt()
+    I->>A: agent-session.ts:1108 agent.prompt(messages)
+    deactivate I
+
+    activate A
+    Note over A: Agent 执行层内部：agent.ts 是门面，<br/>agent-loop.ts 是真正的循环实现
+    A->>A: agent.ts:350 Agent.prompt()
+    A->>A: agent.ts:414 runAgentLoop()
+    A->>A: agent-loop.ts:96 runAgentLoop()
+    A->>A: agent-loop.ts:156 runLoop()
+    Note over A: 第 1 轮循环：先向模型要一次回复
+
+    Note over A,T: 第 1 次模型请求：模型决定调用 read 工具
+    A->>A: agent-loop.ts:212 streamAssistantResponse()
+    A->>A: agent-loop.ts:307 console.error("[P4] Agent 即将请求模型")
+    A->>M: agent-loop.ts:308 streamFunction(config.model, llmContext, opts)
+    activate M
+    M->>M: coding-agent/src/core/sdk.ts:314 streamFn
+    M->>M: model-runtime.ts:636 ModelRuntime.streamSimple()
+    M->>M: ai/src/compat.ts:275 streamSimple()
+    M->>M: ai/src/api/openai-completions.ts:311 stream()
+    M->>M: openai-completions.ts:367 client.chat.completions.create().withResponse()
+    Note over M: 真正发出 HTTP 请求的位置：<br/>openai-completions.ts:367
+    M->>M: 适配器把 llmContext 序列化成<br/>OpenAI Chat Completions 请求体
+    Note over M: 远端模型服务（HTTP 请求 → 响应）：<br/>请求体含 system + 用户消息 + read 工具定义；<br/>响应流带 toolcall_start / toolcall_delta / toolcall_end，<br/>即一次 read 调用请求 {path: "handoff.txt"}
+    M-->>M: 远端模型服务返回响应
+    deactivate M
+    A->>A: agent-loop.ts:317-343 流事件转成 message_update 事件
+
+    Note over I,M: 跨层上行：message_update 事件把 token 流从 Agent 执行层送进交互与会话层
+    A->>I: agent-session.ts:670 this._emit(event)
+    activate I
+    I->>I: interactive-mode.ts:3165 handleEvent(event) → interactive-mode.ts:3244 case "message_update"
+    I->>I: interactive-mode.ts:3247 streamingComponent.updateContent(msg, true)
+    I->>I: assistant-message.ts:91 AssistantMessageComponent.updateContent()
+    I->>I: assistant-message.ts:114 new Markdown(...) 即用户看到流式回复的位置
+    deactivate I
+
+    A->>A: agent-loop.ts:222 toolCalls = message.content.filter(c => c.type === "toolCall")
+    A->>A: agent-loop.ts:233 executeToolCalls()
+    Note over A,T: 第 1 次工具执行：read 是缓冲区读取，不是流式读取
+    A->>A: agent-loop.ts:679 executePreparedToolCall()
+    A->>T: agent-loop.ts:688 prepared.tool.execute()
+    activate T
+    T->>T: read.ts:79 execute()
+    T->>T: read.ts:101 resolveReadPathAsync(path, ctx?.cwd || cwd)
+    T->>T: read.ts:104 ops.access(absolutePath) 可读性校验
+    Note over T: read.ts:46 readFile: (path) => fsReadFile(path)，来自 node:fs/promises。<br/>read.ts:129 拿到的是一整个 Buffer，这是【缓冲区读取】，<br/>没有 createReadStream，也没有任何流式分块读取
+    T->>T: read.ts:129 const buffer = await ops.readFile(absolutePath)
+    T->>T: read.ts:130 buffer.toString("utf-8")
+    T->>T: read.ts:131 textContent.split("\n")
+    T->>T: read.ts:151 truncateHead(selectedContent) 超长内容截断
+    T-->>A: resolve({ content, details })
+    deactivate T
+
+    Note over A,T: 工具结果回注上下文：下一轮模型请求才能看到文件内容
+    A->>A: agent-loop.ts:237-241 currentContext.messages.push(result)
+    A->>A: agent-loop.ts:239 console.error("[P4] 工具结果已加入上下文")
+    Note over A: 内层循环继续：回到 agent-loop.ts:156 runLoop 的下一轮
+
+    Note over A,M: 第 2 次模型请求：上下文里已经有 handoff.txt 的完整内容
+    A->>A: agent-loop.ts:212 streamAssistantResponse() 第 2 轮调用
+    A->>A: agent-loop.ts:307 console.error("[P4] Agent 即将请求模型")
+    A->>M: agent-loop.ts:308 streamFunction(config.model, llmContext, opts)
+    activate M
+    M->>M: coding-agent/src/core/sdk.ts:314 streamFn
+    M->>M: model-runtime.ts:636 ModelRuntime.streamSimple()
+    M->>M: ai/src/compat.ts:275 streamSimple()
+    M->>M: ai/src/api/openai-completions.ts:311 stream()
+    M->>M: openai-completions.ts:367 client.chat.completions.create().withResponse()
+    M->>M: 适配器把 llmContext 序列化成<br/>OpenAI Chat Completions 请求体
+    Note over M: 远端模型服务（HTTP 请求 → 响应）：<br/>请求体新增 tool 结果消息（handoff.txt 的待办与启动命令）；<br/>响应流这次没有 toolcall，只有 text_delta
+    M-->>M: 远端模型服务返回响应
+    deactivate M
+    A->>A: agent-loop.ts:317-343 流事件转成 message_update 事件
+
+    Note over I,M: 回复显示：token 流式更新，流结束后再渲染终稿
+    A->>I: agent-session.ts:670 this._emit(event)
+    activate I
+    I->>I: interactive-mode.ts:3244 case "message_update"
+    I->>I: interactive-mode.ts:3247 streamingComponent.updateContent(msg, true)
+    I->>I: assistant-message.ts:91 AssistantMessageComponent.updateContent()
+    I->>I: assistant-message.ts:114 new Markdown(...) 即用户看到回复的位置
+    deactivate I
+
+    A->>A: agent-loop.ts:156-235 本轮已无 toolCalls，内层循环退出
+    A->>I: agent-loop.ts:346-358 emit message_end
+    activate I
+    I->>I: interactive-mode.ts:3279 case "message_end"
+    I->>I: interactive-mode.ts:3292 streamingComponent.updateContent(msg, false)
+    I->>I: interactive-mode.ts:3317 ui.requestRender() 终稿重绘
+    deactivate I
+    A->>A: agent-loop.ts:244 emit turn_end
+    A->>A: agent-loop.ts:216-217 emit agent_end
+    A->>I: agent-session.ts:643 _handleAgentEvent()
+    activate I
+    I->>I: interactive-mode.ts:3165 handleEvent(event) 本轮结束
+    deactivate I
+    deactivate A
+    I-->>U: 屏幕显示回复：handoff.txt 的待办清单与启动命令，原样呈现
