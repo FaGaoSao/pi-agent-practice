@@ -1,0 +1,94 @@
+==========================================
+实践课3 环境与构建验证记录
+生成时间：2026-11-26
+==========================================
+
+--- S1：环境版本检查 ---
+PS> node --version
+v24.14.0
+PS> npm --version
+11.9.0
+PS> git --version
+git version 2.53.0.windows.1
+PS> node -e "console.log('Hello, Node.js!')"
+Hello, Node.js!
+
+（根项目 engines 要求：>=22.19.0，实际 v24.14.0 满足）
+
+
+--- S2：源码来源与版本 ---
+PS> Get-Location
+C:\Users\48019\Desktop\程序\pi
+
+PS> git remote -v
+org     https://gitee.com/pinhaodui/pi-hunnu-2026.git (fetch)
+org     https://gitee.com/pinhaodui/pi-hunnu-2026.git (push)
+origin  https://github.com/earendil-works/pi.git (fetch)
+origin  https://github.com/earendil-works/pi.git (push)
+
+PS> git branch --show-current
+course-main
+
+PS> git rev-parse HEAD
+d981de1229ef899957bbe968bc8dcda02a21f477
+
+
+--- S4：依赖安装 ---
+PS> npm install --ignore-scripts
+added 313 packages, and changed 7 packages in 6m
+
+53 packages are looking for funding
+  run `npm fund` for details
+
+警告（不导致失败）：
+npm warn Unknown project config "min-release-age"
+npm warn deprecated node-domexception@1.0.0
+npm warn deprecated prebuild-install@7.1.3
+未出现 EBADENGINE；未报告 vulnerabilities。
+
+
+--- S5a：首次 npm run build 失败（重点） ---
+PS> npm run build
+（构建依次进入 chord、tui、telemetry、ai）
+ai 包报错：
+  src/providers/kimi-coding.ts(5,36): error TS2307: Cannot find module './kimi-coding.models.ts'
+  src/providers/opencode-go.ts(13,3): error TS2322: Type '...' is not assignable to type 'readonly Model<...>[]'
+    Type '"google-generative-ai"' is not assignable to type '"anthropic-messages" | "openai-completions" | "openai-responses"'
+npm error Lifecycle script `build:offline` failed with error
+npm error code 1
+
+原因：generate-models 联网拉到更新的模型目录，删除了源码仍引用的 kimi-coding shard，
+      并引入本版本源码不支持的 api 类型（gemini-4-argon）。
+
+解决：
+1) git checkout -- packages/ai/src/providers/kimi-coding.models.ts packages/ai/src/models.generated.ts
+2) 从 npm @earendil-works/pi-ai@0.85.1 提取 dist/providers/data（40 个文件）到 src/providers/data
+3) node scripts/check-model-data.ts → "Generated model data is valid."
+4) npm run build:offline
+
+
+--- S5b：构建产物验证 ---
+PS> npm run build:offline
+（结尾输出）
+> @earendil-works/pi-coding-agent@0.85.1 copy-assets
+Built packages\coding-agent\dist\bundle (51 files, 7.5 MiB)
+
+PS> $LASTEXITCODE
+0
+
+PS> Test-Path .\packages\coding-agent\dist\bundle\cli.js
+True
+
+PS> node .\packages\coding-agent\dist\bundle\cli.js --version
+0.85.1
+
+PS> node .\packages\coding-agent\dist\cli.js --version
+0.85.1
+
+
+--- S6：本地源码版入口验证 ---
+PS> .\pi-test.bat --version
+0.85.1
+
+说明：pi-test.bat 调用 pi-test.ps1，由 Node.js 加载源码解析器运行
+      packages/coding-agent/src/cli.ts，因此运行的是本地源码而非全局安装版本。
