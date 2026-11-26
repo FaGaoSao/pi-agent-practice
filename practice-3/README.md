@@ -40,7 +40,7 @@ PS C:\Users\48019\Desktop\程序\pi> node -e "console.log('Hello, Node.js!')"
 Hello, Node.js!
 ```
 
-![S1 环境版本检查](images/s1-versions.png)
+![S1 环境版本检查](images/s1.png)
 
 Node.js 版本要求来源：本小组仓库根目录 `package.json` 的 `engines` 字段声明为 `>=22.19.0`（见任务三）。
 
@@ -77,7 +77,9 @@ d981de1229ef899957bbe968bc8dcda02a21f477
 
 `org` 远端指向小组组织内的仓库，后续所有安装和构建命令都在此仓库根目录执行。
 
-![S2 源码来源与版本](images/s2-git-info.png)
+![S2 源码来源与版本](../practice-2/images/s1-git-info.png)
+
+（该截图在实践课2报告中已提供，此处复用。）
 
 ## 四、任务三：阅读配置，确认安装与编译的依据
 
@@ -115,7 +117,9 @@ cd packages/chord && npm run build && cd ../tui && npm run build && ... && cd ..
 
 该仓库使用 **npm workspaces** 管理多个包，需从根目录安装依赖、按根目录脚本顺序构建，不要自行给每个子包创建新的依赖锁定文件。
 
-![S3 package.json 配置](images/s3-package-json.png)
+![S3 package.json 配置（engines）](images/s3（a）.png)
+
+![S3 package.json 配置（scripts）](images/s3（b）.png)
 
 ## 五、任务四：安装项目依赖
 
@@ -151,7 +155,7 @@ added 313 packages, and changed 7 packages in 6m
 - 未出现 `EBADENGINE`，说明 Node.js 24 满足全部依赖的版本要求。
 - 本次安装输出未报告漏洞（未出现 `vulnerabilities` 行）。
 
-![S4 依赖安装输出](images/s4-npm-install.png)
+![S4 依赖安装输出](images/s4.png)
 
 ## 六、任务五：本地编译与构建产物验证（重点：困难与解决）
 
@@ -259,7 +263,7 @@ PS C:\Users\48019\Desktop\程序\pi> $LASTEXITCODE
 - 受版本控制的文件可用 git 恢复；被 gitignore 的生成数据需另行补齐。
 - 数据已准备好且仍有效时，用 `npm run build:offline` 复用数据，不重复联网。
 
-![S5a 首次构建失败](images/s5a-build-fail.png)
+![S5a 构建过程结尾](images/s5（a）.png)
 
 ### 6.2 检查并运行构建产物
 
@@ -278,7 +282,7 @@ PS C:\Users\48019\Desktop\程序\pi> node .\packages\coding-agent\dist\cli.js --
 
 `dist` 保存构建产物：以后修改程序应修改 `src` 下的源码再重新构建；直接修改 `dist` 中的文件，可能在下次构建时被覆盖。
 
-![S5b 构建产物验证](images/s5b-build-verify.png)
+![S5b 构建产物验证](images/s5（b）.png)
 
 ### 6.3 后续重新构建
 
@@ -317,7 +321,7 @@ PS C:\Users\48019\Desktop\程序\pi> .\pi-test.bat
 
 模型实际回复（要点）：源码是开发者编写的、可读可修改的原始代码；编译产物是源码经构建工具转换后生成的、供程序直接运行的机器可执行形式，通常不应手工修改。
 
-![S6 本地源码版会话](images/s6-source-session.png)
+![S6 本地源码版会话](images/s6.png)
 
 ## 八、报告说明
 

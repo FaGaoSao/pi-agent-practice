@@ -47,7 +47,7 @@ const response = await streamFunction(config.model, llmContext, {
 });
 ```
 
-![插桩点1：模型请求之前](images/s1-code-insert.png)
+![插桩点1：模型请求之前](images/s1.png)
 
 ### 插桩点 2：工具结果入上下文之后（第 239 行）
 
@@ -72,7 +72,7 @@ for (const result of toolResults) {
 }
 ```
 
-![插桩点2：工具结果入上下文之后](images/s2-code-insert.png)
+![插桩点2：工具结果入上下文之后](images/s2.png)
 
 两条日志都写在 `console.error`（stderr），不是 `console.log`（stdout）。
 
