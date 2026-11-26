@@ -96,7 +96,7 @@ Built packages\coding-agent\dist\bundle (51 files, 7.5 MiB)
 
 `$LASTEXITCODE = 0`，构建成功。
 
-![编译成功](images/s3-build.png)
+![编译成功](images/s3.png)
 
 ### 启动
 
@@ -106,7 +106,7 @@ Built packages\coding-agent\dist\bundle (51 files, 7.5 MiB)
 node .\packages\coding-agent\dist\cli.js
 ```
 
-![启动编译产物](images/s4-start.png)
+![启动编译产物](images/s4.png)
 
 实验用的输入文件内容只有一行：
 
@@ -123,12 +123,12 @@ node .\packages\coding-agent\dist\cli.js
 | 输入指令 | 请直接用一句话解释什么是 Git 分支。 | 请用 read 工具读取当前目录的 practice4.txt，并告诉我文件中的实验代号。 |
 | 是否调用工具 | 否 | 是，调用 `read` 读取 `practice4.txt` |
 | `[P4]` 日志（按顺序） | 1. `[P4] Agent 即将请求模型` | 1. `[P4] Agent 即将请求模型`<br>2. `[P4] 工具结果已加入上下文`<br>3. `[P4] Agent 即将请求模型` |
-| 最终回复 | Git 分支是 Git 中从主开发线分离出来的一条独立提交线，让你可以在不影响其他代码的情况下并行开发、修复或试验新功能。 | 文件中的实验代号是：**river-731** |
+| 最终回复 | Git 分支是指向某个提交的可移动指针，它让一条独立的开发线拥有自己的提交历史，从而可以与其他开发线并行推进，并随时合并。 | 实验代号是 **river-731**。 |
 | 进入几轮模型调用 | 1 轮 | 2 轮 |
 
-![会话A：直接问答](images/s5-session-a.png)
+![会话A：直接问答](images/s5.png)
 
-![会话B：读取文件](images/s6-session-b.png)
+![会话B：读取文件](images/s6.png)
 
 日志条数与循环次数严格对应：第 307 行的日志每调用一次模型就打印一次，第 239 行的日志每有一个工具结果写入上下文就打印一次。会话 A 只有一条模型请求日志，说明模型一次回答完就结束；会话 B 的两条模型请求日志中间夹着一条工具结果日志，说明中间发生过一次真实的工具执行与结果回填。
 
